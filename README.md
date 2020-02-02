@@ -6,8 +6,11 @@ in case of file write or file rename it will:
 3) sent Ctrl+R (reload) keystroke to pico8 process
 
 syntax: pico8reloader path
+
 default path is .
+
 pico8 executable should be accessible via PATH variable
+
 this tool runs only on windows as it relies on PostMessage and WM_KEYUP, WM_KEYDOWN
 
 MIT license
