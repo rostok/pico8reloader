@@ -17,10 +17,10 @@ using System.Windows.Forms;
 [assembly : AssemblyCopyright("Copyright © 2020")]
 [assembly : AssemblyTrademark("")]
 [assembly : AssemblyCulture("")]
-[assembly : AssemblyVersion("1.0.0.0")]
-[assembly : AssemblyFileVersion("1.0.0.0")]
+[assembly : AssemblyVersion("1.0.1.0")]
+[assembly : AssemblyFileVersion("1.0.1.0")]
 
-public class Watcher {
+public class Pico8Reloader {
     // https://www.codeproject.com/Questions/1228092/Simulate-this-keys-to-inactive-application-with-Cs
     [DllImport("user32.dll")]
     public static extern IntPtr PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
@@ -74,6 +74,9 @@ public class Watcher {
         Run();
     }
 
+    public static Rect windowRect = new Rect();
+    public static bool windowRectSet = false;
+
     [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
     public static void Run() {
         string[] args = System.Environment.GetCommandLineArgs();
@@ -85,7 +88,7 @@ public class Watcher {
             Console.WriteLine("2) restart pico8 if lastest p8 file is not in command line");
             Console.WriteLine("3) sent Ctrl+R (reload) keystroke to pico8 process");
             Console.WriteLine("");
-            Console.WriteLine("syntax: pico8reloader path");
+            Console.WriteLine("syntax: pico8reloader [path] [--winpos=x,y[,w,h]]");
             Console.WriteLine("default path is .");
             Console.WriteLine("pico8 should be accessible via PATH variable");
             Console.WriteLine("");
@@ -95,6 +98,24 @@ public class Watcher {
 
         string dir = ".";
         if (args.Length >= 2 && Directory.Exists(args[1])) dir = args[1];
+
+        if (args[args.Length-1].StartsWith("--winpos=")) {
+            string s = args[args.Length-1].Replace("--winpos=","");
+            string[] sa = s.Split(',');
+            int x = 0;
+            int y = 0;
+            int w = 256;
+            int h = 256;
+            if (sa.Length>0) x = Int16.Parse(sa[0]);
+            if (sa.Length>1) y = Int16.Parse(sa[1]);
+            if (sa.Length>2) w = Int16.Parse(sa[2]);
+            if (sa.Length>3) h = Int16.Parse(sa[3]);
+            windowRect.Left = x;
+            windowRect.Top = y;
+            windowRect.Right = x+w;
+            windowRect.Bottom = y+h;
+            windowRectSet = true;
+        }
 
         // Create a new FileSystemWatcher and set its properties.
         FileSystemWatcher watcher = new FileSystemWatcher();
@@ -125,12 +146,9 @@ public class Watcher {
     private static void Action(string FullPath) {
         IntPtr focusedWindow = GetForegroundWindow();
         Process p = Process.GetProcessesByName("pico8").FirstOrDefault();
-        bool windowRectSet = false;
-        Rect windowRect = new Rect();
 
         if (p != null) {
-            string args = p.StartInfo.Arguments;
-            args = GetCommandLine(p);
+            string args = GetCommandLine(p);
             string fn = Path.GetFileName(FullPath);
 
             if (!fn.Contains(".p8")) {
@@ -171,10 +189,10 @@ public class Watcher {
         Console.WriteLine("	running: pico8 -run " + FullPath);
         p = Process.Start("pico8", " -run " + FullPath);
         Thread.Sleep(1000);
+		SetForegroundWindow(p.MainWindowHandle);
 
-        if (windowRectSet) {
-            SetWindowPos(p.MainWindowHandle, IntPtr.Zero, windowRect.Left, windowRect.Top, windowRect.Right - windowRect.Left, windowRect.Bottom - windowRect.Top, 0);
-        }
+        if (windowRectSet) SetWindowPos(p.MainWindowHandle, IntPtr.Zero, windowRect.Left, windowRect.Top, windowRect.Right - windowRect.Left, windowRect.Bottom - windowRect.Top, 0);
+        
 
         SetForegroundWindow(focusedWindow);
     }
