@@ -5,9 +5,10 @@ in case of file write or file rename it will:
 2) restart pico8 if lastest p8 file is not in command line and reposition new window to the old one position
 3) send Ctrl+R (reload) keystroke to pico8 process
 
-syntax: ```pico8reloader path```
+syntax: ```pico8reloader [path] [--winpos=x,y[,w,h]]```
 
 default path is .
+winpos sets default pico8 position, no w/h values assumes 256
 
 pico8 executable should be accessible via PATH variable
 
