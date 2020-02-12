@@ -7,7 +7,8 @@ in case of file write or file rename it will:
 
 syntax: ```pico8reloader [path] [--winpos=x,y[,w,h]]```
 
-default path is .
+default path is ```.```
+
 winpos sets default pico8 position, no w/h values assumes 256
 
 pico8 executable should be accessible via PATH variable
