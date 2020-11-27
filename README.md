@@ -20,7 +20,8 @@ pico reloader can be easily integrated with VS Code via tasks.json
 
 here's a sample configuration that will run pico8reloader with Ctrl+B shortcut
 
-```{
+```json
+{
     "version": "2.0.0",
     "tasks": [
         {
@@ -35,6 +36,39 @@ here's a sample configuration that will run pico8reloader with Ctrl+B shortcut
     ]
 }
 ```
+
+# advanced tasks.json
+This ```tasks.json``` setup will, on each execution (started by Ctrl+Shift+B), kill old pico8reloader and also precisely set size of VS Code. Note that [NirCmd](https://nircmd.nirsoft.net/) is required. 
+
+```json
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "kill-pico8reloader",
+            "type": "shell",
+            "command": "taskkill /f /im pico8reloader.exe",
+        },
+        {
+            "label": "pico8reloader",
+            "type": "shell",
+            "command": "taskkill /f /im pico8reloader.exe ; C:/projects/c#/pico8reloader/pico8reloader.exe . --winpos=1522,0,406,430",
+        },
+        {
+            "label": "code-resize",
+            "type": "shell",
+            "command": "nircmd win max ititle Visual~x20Studio~x20Code ; nircmd win togglemax ititle Visual~x20Studio~x20Code ; nircmd win setsize ititle Visual~x20Studio~x20Code 0 0 1530 1050",
+        },
+        {
+            "label": "pico8reloader and resize code",
+            "dependsOn": ["code-resize","pico8reloader"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}```
 
 # license
 MIT
