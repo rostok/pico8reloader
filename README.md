@@ -68,8 +68,12 @@ This ```tasks.json``` setup will, on each execution (started by Ctrl+Shift+B), k
             }
         }
     ]
+<<<<<<< HEAD
 }
 ```
+=======
+}```
+>>>>>>> eafa6481609b7182282f3de63b0017f6dc70f72d
 
 # license
 MIT
