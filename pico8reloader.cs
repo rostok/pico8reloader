@@ -14,28 +14,24 @@ using System.Windows.Forms;
 [assembly : AssemblyTitle("pico8reloader")]
 [assembly : AssemblyConfiguration("")]
 [assembly : AssemblyCompany("rostok - https://github.com/rostok/")]
-[assembly : AssemblyCopyright("Copyright © 2020")]
+[assembly : AssemblyCopyright("Copyright © 2022")]
 [assembly : AssemblyTrademark("")]
 [assembly : AssemblyCulture("")]
-[assembly : AssemblyVersion("1.0.1.0")]
-[assembly : AssemblyFileVersion("1.0.1.0")]
+[assembly : AssemblyVersion("1.0.2.0")]
+[assembly : AssemblyFileVersion("1.0.2.0")]
 
 public class Pico8Reloader {
     // https://www.codeproject.com/Questions/1228092/Simulate-this-keys-to-inactive-application-with-Cs
-    [DllImport("user32.dll")]
-    public static extern IntPtr PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern IntPtr PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
     const uint WM_KEYDOWN = 0x0100;
     const uint WM_KEYUP = 0x0101;
 
-    [DllImport("User32.dll")]
-    static extern int SetForegroundWindow(IntPtr point);
-
-    [DllImport("user32.dll")]
-    static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    public static extern bool GetWindowRect(IntPtr hwnd, ref Rect rectangle);
+    [DllImport("User32.dll")] static extern int SetForegroundWindow(IntPtr point);
+    [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hwnd, ref Rect rectangle);
+    [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)] static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
 
     public struct Rect {
         public int Left { get; set; }
@@ -45,10 +41,7 @@ public class Pico8Reloader {
     }
 
     // http://csharphelper.com/blog/2016/12/set-another-applications-size-and-position-in-c/
-    [DllImport("user32.dll")]
-    [
-        return :MarshalAs(UnmanagedType.Bool)
-    ]
+    [DllImport("user32.dll")] [return :MarshalAs(UnmanagedType.Bool)]
     static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, SetWindowPosFlags uFlags);
 
     [Flags()]
@@ -76,6 +69,7 @@ public class Pico8Reloader {
 
     public static Rect windowRect = new Rect();
     public static bool windowRectSet = false;
+    public static bool focusSet = false;
 
     [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
     public static void Run() {
@@ -87,10 +81,11 @@ public class Pico8Reloader {
             Console.WriteLine("1) run pico8 with latest p8 file if it is not running");
             Console.WriteLine("2) restart pico8 if lastest p8 file is not in command line");
             Console.WriteLine("3) sent Ctrl+R (reload) keystroke to pico8 process");
+            Console.WriteLine("4) on --focus keep focus on pico8 window, or get to previous one");
             Console.WriteLine("");
-            Console.WriteLine("syntax: pico8reloader [path] [--winpos=x,y[,w,h]]");
+            Console.WriteLine("syntax: pico8reloader [path] [--winpos=x,y[,w,h]] [--focus]");
             Console.WriteLine("default path is .");
-            Console.WriteLine("pico8 should be accessible via PATH variable");
+            Console.WriteLine("pico8 should be accessible via PATH variable (.bat or a shim)");
             Console.WriteLine("");
             Console.WriteLine("this comes with MIT license from rostok - https://github.com/rostok/");
             return;
@@ -99,8 +94,8 @@ public class Pico8Reloader {
         string dir = ".";
         if (args.Length >= 2 && Directory.Exists(args[1])) dir = args[1];
 
-        if (args[args.Length-1].StartsWith("--winpos=")) {
-            string s = args[args.Length-1].Replace("--winpos=","");
+        args.ToList().Where(a=>a.StartsWith("--winpos=")).ToList().ForEach(a=>{
+            string s = a.Replace("--winpos=","");
             string[] sa = s.Split(',');
             int x = 0;
             int y = 0;
@@ -115,12 +110,14 @@ public class Pico8Reloader {
             windowRect.Right = x+w;
             windowRect.Bottom = y+h;
             windowRectSet = true;
-        }
+        });
+        
+        args.ToList().Where(a=>a.StartsWith("--focus")).ToList().ForEach(a=>focusSet=true);
 
         // Create a new FileSystemWatcher and set its properties.
         FileSystemWatcher watcher = new FileSystemWatcher();
         watcher.Path = dir;
-        watcher.NotifyFilter = NotifyFilters.LastAccess | NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName;
+        watcher.NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName | NotifyFilters.DirectoryName; // NotifyFilters.LastAccess
         watcher.Filter = "*.p8";
 
         watcher.Changed += new FileSystemEventHandler(OnChanged);
@@ -131,8 +128,17 @@ public class Pico8Reloader {
         watcher.EnableRaisingEvents = true;
 
         Console.WriteLine("Starting to monitor " + dir + " folder.");
-        Console.WriteLine("Press \'q\' or Ctrl+C to quit.");
-        while (Console.Read() != 'q');
+        Console.WriteLine("Press Q or Ctrl+C to quit, F to switch focus mode.");
+        while (true) {
+            char c = Char.ToLower(Convert.ToChar(Console.Read()));
+            if (c=='q') break;
+            if (c=='f') { focusSet = !focusSet; Console.WriteLine("--focus is "+(focusSet?"set":"not set")); };
+            if (c=='s') {
+                Process p = Process.GetProcessesByName("pico8").FirstOrDefault();
+                Console.WriteLine(p);
+                if (p != null) SetForegroundWindow(p.MainWindowHandle);
+            }
+        }
     }
 
     // https://stackoverflow.com/questions/2633628/can-i-get-command-line-arguments-of-other-processes-from-net-c/2633674#2633674
@@ -152,7 +158,7 @@ public class Pico8Reloader {
             string fn = Path.GetFileName(FullPath);
 
             if (!fn.Contains(".p8")) {
-                Console.WriteLine("	not a p8 file: " + fn);
+                Console.WriteLine("    not a p8 file: " + fn);
                 return;
             }
 
@@ -160,7 +166,7 @@ public class Pico8Reloader {
             //Console.WriteLine("fn:"+fn);
             if (args.ToLower().Contains(fn.ToLower())) {
                 // just reload
-                Console.WriteLine("	sending Ctrl+R");
+                Console.WriteLine("    sending Ctrl+R");
                 SetForegroundWindow(p.MainWindowHandle);
                 p.WaitForInputIdle();
                 //SendKeys.SendWait("^(r)"); // doesn't work
@@ -175,26 +181,33 @@ public class Pico8Reloader {
                 PostMessage(p.MainWindowHandle, WM_KEYUP, (IntPtr) (Keys.LControlKey), (IntPtr) (1 | 0x1D << 16));
                 Thread.Sleep(50);
 
-                SetForegroundWindow(focusedWindow);
+                // https://stackoverflow.com/a/27449582/2451546
+                ShowWindow(focusSet ? p.MainWindowHandle : focusedWindow, 9);
+                // https://stackoverflow.com/a/30572826/2451546
+                keybd_event(0, 0, 0, 0);
+                SetForegroundWindow(focusSet ? p.MainWindowHandle : focusedWindow);
                 return;
             } else {
                 GetWindowRect(p.MainWindowHandle, ref windowRect);
                 windowRectSet = true;
 
-                Console.WriteLine("	killing");
+                Console.WriteLine("    killing");
                 p.Kill();
             }
         }
 
-        Console.WriteLine("	running: pico8 -run " + FullPath);
+        Console.WriteLine("    running: pico8 -run " + FullPath);
         p = Process.Start("pico8", " -run " + FullPath);
-        Thread.Sleep(1000);
-		SetForegroundWindow(p.MainWindowHandle);
+        if (p != null) {
+            Thread.Sleep(1000);
+            SetForegroundWindow(p.MainWindowHandle);
 
-        if (windowRectSet) SetWindowPos(p.MainWindowHandle, IntPtr.Zero, windowRect.Left, windowRect.Top, windowRect.Right - windowRect.Left, windowRect.Bottom - windowRect.Top, 0);
-        
+            if (windowRectSet) SetWindowPos(p.MainWindowHandle, IntPtr.Zero, windowRect.Left, windowRect.Top, windowRect.Right - windowRect.Left, windowRect.Bottom - windowRect.Top, 0);
 
-        SetForegroundWindow(focusedWindow);
+            ShowWindow(focusSet ? p.MainWindowHandle : focusedWindow, 9);
+            keybd_event(0, 0, 0, 0);
+            SetForegroundWindow(focusSet ? p.MainWindowHandle : focusedWindow);
+        }
     }
 
     private static void OnChanged(object source, FileSystemEventArgs e) {
