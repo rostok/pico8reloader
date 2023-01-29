@@ -14,11 +14,10 @@ using System.Windows.Forms;
 [assembly : AssemblyTitle("pico8reloader")]
 [assembly : AssemblyConfiguration("")]
 [assembly : AssemblyCompany("rostok - https://github.com/rostok/")]
-[assembly : AssemblyCopyright("Copyright © 2022")]
 [assembly : AssemblyTrademark("")]
 [assembly : AssemblyCulture("")]
-[assembly : AssemblyVersion("1.0.2.0")]
-[assembly : AssemblyFileVersion("1.0.2.0")]
+[assembly : AssemblyVersion("1.0.3.0")]
+[assembly : AssemblyFileVersion("1.0.3.0")]
 
 public class Pico8Reloader {
     // https://www.codeproject.com/Questions/1228092/Simulate-this-keys-to-inactive-application-with-Cs
@@ -70,6 +69,7 @@ public class Pico8Reloader {
     public static Rect windowRect = new Rect();
     public static bool windowRectSet = false;
     public static bool focusSet = false;
+    public static int delay = 0;
 
     [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
     public static void Run() {
@@ -78,12 +78,12 @@ public class Pico8Reloader {
         if (args.Length >= 2 && (args[1] == "-h" || args[1] == "/?" || args[1] == "--help")) {
             Console.WriteLine("pico8reloader will watch folder for any p8 file changes.");
             Console.WriteLine("in case of file write or file rename it will:");
-            Console.WriteLine("1) run pico8 with latest p8 file if it is not running");
+            Console.WriteLine("1) run pico8 with latest p8 file if it is not running (after delay)");
             Console.WriteLine("2) restart pico8 if lastest p8 file is not in command line");
             Console.WriteLine("3) sent Ctrl+R (reload) keystroke to pico8 process");
             Console.WriteLine("4) on --focus keep focus on pico8 window, or get to previous one");
             Console.WriteLine("");
-            Console.WriteLine("syntax: pico8reloader [path] [--winpos=x,y[,w,h]] [--focus]");
+            Console.WriteLine("syntax: pico8reloader [path] [--winpos=x,y[,w,h]] [--focus] [--delay=milisecs]");
             Console.WriteLine("default path is .");
             Console.WriteLine("pico8 should be accessible via PATH variable (.bat or a shim)");
             Console.WriteLine("");
@@ -93,6 +93,8 @@ public class Pico8Reloader {
 
         string dir = ".";
         if (args.Length >= 2 && Directory.Exists(args[1])) dir = args[1];
+
+        args.ToList().Where(a=>a.StartsWith("--delay=")).ToList().ForEach(a=>Int32.TryParse(a.Replace("--delay=",""), out delay));
 
         args.ToList().Where(a=>a.StartsWith("--winpos=")).ToList().ForEach(a=>{
             string s = a.Replace("--winpos=","");
@@ -154,7 +156,7 @@ public class Pico8Reloader {
         Process p = Process.GetProcessesByName("pico8").FirstOrDefault();
 
         if (p != null) {
-            string args = GetCommandLine(p);
+            string args = GetCommandLine(p)+"";
             string fn = Path.GetFileName(FullPath);
 
             if (!fn.Contains(".p8")) {
@@ -162,8 +164,6 @@ public class Pico8Reloader {
                 return;
             }
 
-            //Console.WriteLine("args:"+args);
-            //Console.WriteLine("fn:"+fn);
             if (args.ToLower().Contains(fn.ToLower())) {
                 // just reload
                 Console.WriteLine("    sending Ctrl+R");
@@ -196,6 +196,7 @@ public class Pico8Reloader {
             }
         }
 
+        System.Threading.Thread.Sleep(delay);
         Console.WriteLine("    running: pico8 -run " + FullPath);
         p = Process.Start("pico8", " -run " + FullPath);
         if (p != null) {
