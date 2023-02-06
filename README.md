@@ -1,19 +1,29 @@
 # pico8reloader
-pico8reloader will watch a folder for any .p8 file changes
+pico8reloader will watch folder for any p8 file changes.
 in case of file write or file rename it will:
-1) run pico8 with latest p8 file if it is not running
-2) restart pico8 if lastest p8 file is not in command line and reposition new window to the old one position
-3) send Ctrl+R (reload) keystroke to pico8 process
+1) run pico8 with latest p8 file if it is not running (after delay or check)
+2) restart pico8 if lastest p8 file is not in command line
+3) sent Ctrl+R (reload) keystroke to pico8 process
+4) on --focus keep focus on pico8 window, or get to previous one
 
-syntax: ```pico8reloader [path] [--winpos=x,y[,w,h]]```
+syntax: ```pico8reloader [path] [--winpos=x,y[,w,h]] [--focus] [--delay=milisecs] [--check]```
+
+
+
+this comes with MIT license from rostok - https://github.com/rostok/
+
 
 default path is ```.```
 
 winpos sets default pico8 position, no w/h values assumes 256
 
-pico8 executable should be accessible via PATH variable
+pico8 should be accessible via PATH variable (.bat or a shim)
 
 this tool runs only on windows as it relies on PostMessage and WM_KEYUP, WM_KEYDOWN
+
+# changes
+* 1.0.3.0 - Added --delay to wait for cloud backup file syncing
+* 1.0.4.0 - Added --check and fixed active windows size being changed by SW_RESTORE by setting it to  previous size and pos 
 
 # VS Code integration
 pico reloader can be easily integrated with VS Code via tasks.json
